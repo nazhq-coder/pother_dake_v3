@@ -176,7 +176,8 @@ export default function BookingHistoryScreen({ navigation }: Props) {
           setCancelling(bookingId);
           try {
             await repository.cancelBooking(bookingId);
-            setBookings(prev => prev.filter(b => b.id !== bookingId));
+            // Reload data so cancelled booking remains visible with updated status
+            await loadData();
             Alert.alert('Success', 'Booking cancelled');
           } catch (err: any) {
             Alert.alert('Error', err?.message || 'Failed to cancel booking');
