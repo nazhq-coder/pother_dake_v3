@@ -9,9 +9,27 @@ import { IDataSource } from './Repository';
 import mockDataStore from '../services/mockDataStore';
 
 // In-memory storage for state changes during session
-let mockTrips = JSON.parse(JSON.stringify(mockDataStore.trips));
+let mockTrips = JSON.parse(JSON.stringify(mockDataStore.trips)) as Trip[];
+
+// Build a single source-of-truth bookings array derived from trips' passengers.
+// This ensures repository.getBookings() returns bookings that already exist on trips
+// while preserving runtime mutations (bookTrip / cancelBooking) which update both
+// mockTrips and mockBookings.
 let mockBookings: Booking[] = [];
-let mockUsers = JSON.parse(JSON.stringify(mockDataStore.passengers));
+
+// Initialize mockBookings from mockTrips once (avoid duplicating on repeated calls)
+(() => {
+  try {
+    mockBookings = mockTrips.flatMap((trip: Trip) => {
+      const passengers = Array.isArray(trip.passengers) ? trip.passengers : [];
+      return passengers.map((b: Booking) => ({ ...b, tripId: trip.id }));
+    });
+  } catch (e) {
+    mockBookings = [];
+  }
+})();
+
+let mockUsers = JSON.parse(JSON.stringify(mockDataStore.passengers)) as Passenger[];
 
 class MockDataSource implements IDataSource {
   async fetchTrips(): Promise<Trip[]> {
@@ -28,12 +46,12 @@ class MockDataSource implements IDataSource {
 
   async createTrip(tripData: Omit<Trip, 'id' | 'createdAt'>): Promise<Trip> {
     await new Promise(resolve => setTimeout(resolve, 400));
-    
+
     const newTrip: Trip = {
       ...tripData,
       id: `trip-${Date.now()}`,
       createdAt: new Date().toISOString(),
-    };
+    } as Trip;
 
     mockTrips.push(newTrip);
     return JSON.parse(JSON.stringify(newTrip));
@@ -41,7 +59,7 @@ class MockDataSource implements IDataSource {
 
   async updateTrip(id: string, updates: Partial<Trip>): Promise<Trip> {
     await new Promise(resolve => setTimeout(resolve, 300));
-    
+
     const index = mockTrips.findIndex((t: Trip) => t.id === id);
     if (index === -1) throw new Error('Trip not found');
 
@@ -51,11 +69,14 @@ class MockDataSource implements IDataSource {
 
   async deleteTrip(id: string): Promise<void> {
     await new Promise(resolve => setTimeout(resolve, 300));
-    
+
     const index = mockTrips.findIndex((t: Trip) => t.id === id);
     if (index === -1) throw new Error('Trip not found');
-    
+
     mockTrips.splice(index, 1);
+
+    // Also remove any bookings associated with this trip from mockBookings
+    mockBookings = mockBookings.filter(b => b.tripId !== id);
   }
 
   async bookTrip(tripId: string, passengerId: string, seatsBooked: number): Promise<Booking> {
@@ -82,12 +103,13 @@ class MockDataSource implements IDataSource {
       status: 'CONFIRMED',
       bookingDate: new Date().toISOString(),
       paymentStatus: 'PAID',
-    };
+    } as Booking;
 
-    // Update trip availability
+    // Update trip availability and passengers
     trip.availableSeats -= seatsBooked;
     trip.passengers.push(booking);
-    
+
+    // Keep the single source-of-truth booking list in sync
     mockBookings.push(booking);
     return JSON.parse(JSON.stringify(booking));
   }
@@ -99,7 +121,7 @@ class MockDataSource implements IDataSource {
     if (passengerId) {
       bookings = bookings.filter(b => b.passengerId === passengerId);
     }
-    
+
     return JSON.parse(JSON.stringify(bookings));
   }
 
@@ -111,7 +133,7 @@ class MockDataSource implements IDataSource {
 
     const booking = mockBookings[bookingIndex];
     const trip = mockTrips.find((t: Trip) => t.id === booking.tripId);
-    
+
     if (trip) {
       trip.availableSeats += booking.seatsBooked;
       const tripBookingIndex = trip.passengers.findIndex(b => b.id === bookingId);
@@ -125,13 +147,13 @@ class MockDataSource implements IDataSource {
 
   async getUser(id: string): Promise<User | null> {
     await new Promise(resolve => setTimeout(resolve, 200));
-    
-    let user = mockUsers.find((u: User) => u.id === id);
+
+    let user = mockUsers.find((u: User) => u.id === id) as User | undefined;
     if (!user) {
-      user = mockDataStore.drivers.find(d => d.id === id);
+      user = mockDataStore.drivers.find(d => d.id === id) as User | undefined;
     }
     if (!user && id === mockDataStore.admin.id) {
-      user = mockDataStore.admin;
+      user = mockDataStore.admin as User;
     }
 
     return user ? JSON.parse(JSON.stringify(user)) : null;
