@@ -1,6 +1,6 @@
 import styled from 'styled-components/native';
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, Alert, FlatList } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Header from '../components/Header';
 import repository from '../repository';
@@ -93,28 +93,17 @@ export default function SearchResults({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
 
-  useEffect(() => {
-    loadTrips();
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      // Reload trips whenever the screen comes into focus so results stay fresh
-      loadTrips();
-    }, [])
-  );
-
   const loadTrips = async () => {
     try {
       setLoading(true);
       const data = await repository.fetchTrips();
       setTrips(data);
-      // apply current search text to the fresh data
-      if (searchText) {
+      const text = (searchText || '').trim().toLowerCase();
+      if (text) {
         const filtered = data.filter(trip =>
-          trip.origin.name.toLowerCase().includes(searchText.toLowerCase()) ||
-          trip.destination.name.toLowerCase().includes(searchText.toLowerCase()) ||
-          trip.driver.name.toLowerCase().includes(searchText.toLowerCase())
+          trip.origin.name.toLowerCase().includes(text) ||
+          trip.destination.name.toLowerCase().includes(text) ||
+          trip.driver.name.toLowerCase().includes(text)
         );
         setFilteredTrips(filtered);
       } else {
@@ -127,12 +116,19 @@ export default function SearchResults({ navigation }: Props) {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      loadTrips();
+    }, [])
+  );
+
   const handleSearch = (text: string) => {
     setSearchText(text);
+    const lower = text.toLowerCase();
     const filtered = trips.filter(trip =>
-      trip.origin.name.toLowerCase().includes(text.toLowerCase()) ||
-      trip.destination.name.toLowerCase().includes(text.toLowerCase()) ||
-      trip.driver.name.toLowerCase().includes(text.toLowerCase())
+      trip.origin.name.toLowerCase().includes(lower) ||
+      trip.destination.name.toLowerCase().includes(lower) ||
+      trip.driver.name.toLowerCase().includes(lower)
     );
     setFilteredTrips(filtered);
   };
@@ -175,14 +171,11 @@ export default function SearchResults({ navigation }: Props) {
       <Header navigation={navigation} title="Search Trips" />
       <Container>
         <Content>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <SearchBar
-              placeholder="Search by location or driver name..."
-              value={searchText}
-              onChangeText={handleSearch}
-              returnKeyType="search"
-            />
-          </KeyboardAvoidingView>
+          <SearchBar
+            placeholder="Search by location or driver name..."
+            value={searchText}
+            onChangeText={handleSearch}
+          />
 
           {filteredTrips.length === 0 ? (
             <EmptyView>
@@ -196,8 +189,6 @@ export default function SearchResults({ navigation }: Props) {
               renderItem={renderTrip}
               keyExtractor={item => item.id}
               scrollEnabled={true}
-              keyboardDismissMode="on-drag"
-              showsVerticalScrollIndicator={false}
             />
           )}
         </Content>
