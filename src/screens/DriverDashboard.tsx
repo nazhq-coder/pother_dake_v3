@@ -1,6 +1,7 @@
 import styled from 'styled-components/native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, FlatList } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import Header from '../components/Header';
 import { useAuth } from '../auth/AuthContext';
 import repository from '../repository';
@@ -21,7 +22,7 @@ const Content = styled.ScrollView`
 `;
 
 const WelcomeCard = styled.View`
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background-color: #059669;
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 20px;
@@ -49,7 +50,7 @@ const SectionTitle = styled.Text`
 
 const StatsContainer = styled.View`
   flex-direction: row;
-  gap: 12px;
+  justify-content: space-between;
   margin-bottom: 16px;
 `;
 
@@ -61,6 +62,7 @@ const StatCard = styled.View`
   border-width: 1px;
   border-color: #e5e7eb;
   align-items: center;
+  margin-right: 8px;
 `;
 
 const StatNumber = styled.Text`
@@ -99,7 +101,6 @@ const TripDetail = styled.Text`
 
 const QuickActionsContainer = styled.View`
   margin-top: 20px;
-  gap: 10px;
 `;
 
 const ActionButton = styled.TouchableOpacity<{ variant?: string }>`
@@ -109,6 +110,7 @@ const ActionButton = styled.TouchableOpacity<{ variant?: string }>`
   border-width: ${p => p.variant === 'secondary' ? '1px' : '0px'};
   border-color: ${p => p.variant === 'secondary' ? '#e5e7eb' : 'transparent'};
   align-items: center;
+  margin-bottom: 10px;
 `;
 
 const ActionButtonText = styled.Text<{ variant?: string }>`
@@ -142,10 +144,6 @@ function DriverDashboardInner({ navigation }: Props) {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
   const loadData = async () => {
     try {
       setLoading(true);
@@ -164,6 +162,16 @@ function DriverDashboardInner({ navigation }: Props) {
     }
   };
 
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [user])
+  );
+
   const upcomingTrips = trips.filter(t => {
     const now = new Date();
     const tripDate = new Date(`${t.departureDate}T${t.departureTime}`);
@@ -171,7 +179,7 @@ function DriverDashboardInner({ navigation }: Props) {
   });
 
   const completedTrips = trips.filter(t => t.status === 'COMPLETED');
-  const totalPassengers = trips.reduce((sum, trip) => sum + trip.passengers.length, 0);
+  const totalPassengers = trips.reduce((sum, trip) => sum + (trip.passengers?.length || 0), 0);
 
   if (loading) {
     return (
@@ -205,7 +213,7 @@ function DriverDashboardInner({ navigation }: Props) {
               <StatNumber>{completedTrips.length}</StatNumber>
               <StatLabel>Completed</StatLabel>
             </StatCard>
-            <StatCard>
+            <StatCard style={{ marginRight: 0 }}>
               <StatNumber>{totalPassengers}</StatNumber>
               <StatLabel>Passengers</StatLabel>
             </StatCard>
