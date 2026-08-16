@@ -1,10 +1,10 @@
 import styled from 'styled-components/native';
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import Header from '../components/Header';
 import { useAuth } from '../auth/AuthContext';
 import repository from '../repository';
-import { Location } from '../types';
+import { Location, Driver } from '../types';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation';
 
@@ -15,9 +15,10 @@ const Container = styled.View`
   background-color: ${p => p.theme.colors.background};
 `;
 
-const Content = styled.ScrollView`
+const Content = styled(KeyboardAvoidingView)
+`
   padding: 16px;
-`;
+` as unknown as typeof KeyboardAvoidingView;
 
 const Field = styled.TextInput`
   border-width: 1px;
@@ -57,6 +58,19 @@ export default function CreateTrip({ navigation }: Props) {
   const [music, setMusic] = useState(true);
   const [luggage, setLuggage] = useState(true);
 
+  useEffect(() => {
+    // nothing
+  }, []);
+
+  const validateDate = (d: string) => {
+    // basic YYYY-MM-DD
+    return /^\d{4}-\d{2}-\d{2}$/.test(d);
+  };
+
+  const validateTime = (t: string) => {
+    return /^\d{2}:\d{2}$/.test(t);
+  };
+
   const onSubmit = async () => {
     if (!user || user.role !== 'DRIVER') {
       Alert.alert('Error', 'Only drivers can create trips');
@@ -68,8 +82,13 @@ export default function CreateTrip({ navigation }: Props) {
       return;
     }
 
-    if (!date.trim() || !departureTime.trim()) {
-      Alert.alert('Error', 'Date and departure time required');
+    if (!validateDate(date.trim())) {
+      Alert.alert('Error', 'Date must be in YYYY-MM-DD format');
+      return;
+    }
+
+    if (!validateTime(departureTime.trim())) {
+      Alert.alert('Error', 'Departure time must be in HH:MM format');
       return;
     }
 
@@ -99,9 +118,25 @@ export default function CreateTrip({ navigation }: Props) {
       longitude: 90.4243,
     };
 
+    // Try to get driver info from repository
+    let driverObj: Driver | undefined;
+    try {
+      const d = await repository.getDriverById(user.id);
+      if (d) driverObj = d;
+    } catch (e) {
+      // fallback to building from user
+      driverObj = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: (user as any).phone || '',
+        role: 'DRIVER',
+      } as Driver;
+    }
+
     const tripData = {
       driverId: user.id,
-      driver: user as any,
+      driver: (driverObj as Driver),
       origin,
       destination: destination_loc,
       departureDate: date.trim(),
@@ -141,7 +176,7 @@ export default function CreateTrip({ navigation }: Props) {
       <>
         <Header navigation={navigation} title="Create Trip" />
         <Container>
-          <Content>
+          <Content behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <Text style={{ fontSize: 16, color: '#ef4444' }}>Only drivers can create trips</Text>
           </Content>
         </Container>
@@ -153,7 +188,7 @@ export default function CreateTrip({ navigation }: Props) {
     <>
       <Header navigation={navigation} title="Create Trip" />
       <Container>
-        <Content>
+        <Content behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Create New Trip</Text>
 
           <Field
