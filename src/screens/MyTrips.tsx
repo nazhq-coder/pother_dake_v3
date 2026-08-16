@@ -1,6 +1,7 @@
 import styled from 'styled-components/native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert, FlatList } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import Header from '../components/Header';
 import { useAuth } from '../auth/AuthContext';
 import repository from '../repository';
@@ -145,10 +146,6 @@ export default function MyTripsScreen({ navigation }: Props) {
   const [activeTab, setActiveTab] = useState<TabType>('upcoming');
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadTrips();
-  }, []);
-
   const loadTrips = async () => {
     try {
       setLoading(true);
@@ -168,6 +165,16 @@ export default function MyTripsScreen({ navigation }: Props) {
     }
   };
 
+  useEffect(() => {
+    loadTrips();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadTrips();
+    }, [user])
+  );
+
   const handleDeleteTrip = async (tripId: string) => {
     Alert.alert('Confirm Deletion', 'Are you sure you want to delete this trip?', [
       { text: 'Keep It', onPress: () => {} },
@@ -177,7 +184,8 @@ export default function MyTripsScreen({ navigation }: Props) {
           setDeleting(tripId);
           try {
             await repository.deleteTrip(tripId);
-            setTrips(prev => prev.filter(t => t.id !== tripId));
+            // Refresh trips after deletion
+            await loadTrips();
             Alert.alert('Success', 'Trip deleted');
           } catch (err: any) {
             Alert.alert('Error', err?.message || 'Failed to delete trip');
