@@ -214,6 +214,15 @@ class MockDataSource implements IDataSource {
       };
     }
 
+    // Support admin login via mock admin email
+    const admin = mockDataStore.admin;
+    if (admin && admin.email.toLowerCase() === email.toLowerCase()) {
+      return {
+        user: JSON.parse(JSON.stringify(admin)),
+        token: `mock-token-${admin.id}-${Date.now()}`,
+      };
+    }
+
     // Fallback: create a demo user
     const demoUser: Passenger = {
       id: `user-${Date.now()}`,
