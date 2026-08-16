@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+.expo-shared/
+android/
+ios/
+*.log
+.env
+.env.*
+.vscode/
+dist/
+web-build/
+
+# mac
+.DS_Store

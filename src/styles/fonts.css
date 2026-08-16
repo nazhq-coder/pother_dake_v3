@@ -1,0 +1,3 @@
+/* Typography — Inter is used throughout for its clean legibility at both display and body sizes.
+   Weights 300–900 are preloaded; tree-shaking is handled by the Google Fonts CDN subset. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');

@@ -1,0 +1,1 @@
+Update: added a modular API service layer (src/api/index.ts) that exposes fetchTrips, fetchTripById, fetchStats, fetchDrivers and loginWithOtp. Screens now request data via this service layer and run in mock mode by default.

@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "Pother Dake RDM",
+    "slug": "pother-dake-rdm-mobile",
+    "version": "1.0.0",
+    "sdkVersion": "49.0.0",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "extra": {
+      "apiUrl": "http://72.61.225.177:5001",
+      "useMock": true,
+      "mockMode": true
+    },
+    "android": {
+      "package": "com.potherdake"
+    }
+  }
+}
