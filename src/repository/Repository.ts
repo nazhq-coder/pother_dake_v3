@@ -29,6 +29,9 @@ export interface IDataSource {
   bookTrip(tripId: string, passengerId: string, seatsBooked: number): Promise<Booking>;
   getBookings(passengerId?: string): Promise<Booking[]>;
   cancelBooking(bookingId: string): Promise<void>;
+
+  // Optional admin helpers
+  getCompletedTrips?(): Promise<Trip[]>;
 }
 
 /**
@@ -100,6 +103,16 @@ class Repository implements IDataSource {
 
   async cancelBooking(bookingId: string): Promise<void> {
     return this.dataSource.cancelBooking(bookingId);
+  }
+
+  async getCompletedTrips(): Promise<Trip[]> {
+    // If the underlying data source implements getCompletedTrips, call it; otherwise return empty
+    // @ts-ignore - optional method on IDataSource
+    if (typeof (this.dataSource as any).getCompletedTrips === 'function') {
+      // @ts-ignore
+      return (this.dataSource as any).getCompletedTrips();
+    }
+    return [];
   }
 }
 
