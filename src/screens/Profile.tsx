@@ -1,6 +1,7 @@
 import styled from 'styled-components/native';
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import Header from '../components/Header';
 import { useAuth } from '../auth/AuthContext';
 import repository from '../repository';
@@ -98,6 +99,29 @@ export default function ProfileScreen({ navigation }: Props) {
   const [phone, setPhone] = useState(user?.phone || '');
   const [avatar, setAvatar] = useState(user?.avatar || '👤');
 
+  // Refresh local state with latest user data whenever the screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      (async () => {
+        if (!user) return;
+        try {
+          const fresh = await repository.getUser(user.id);
+          if (fresh && mounted) {
+            // Update auth context and local fields if different
+            setAuthUser((prev => ({ ...(prev || {} as any), ...fresh })) as any);
+            setName(fresh.name || '');
+            setPhone(fresh.phone || '');
+            setAvatar(fresh.avatar || '👤');
+          }
+        } catch (e) {
+          // ignore fetch errors on focus
+        }
+      })();
+      return () => { mounted = false; };
+    }, [user?.id])
+  );
+
   if (!user) {
     return (
       <>
@@ -122,6 +146,7 @@ export default function ProfileScreen({ navigation }: Props) {
         phone: phone.trim(),
         avatar: avatar.trim(),
       });
+      // Update auth context so other screens get the new user immediately
       setAuthUser(updated);
       setEditMode(false);
       Alert.alert('Success', 'Profile updated');
@@ -155,116 +180,118 @@ export default function ProfileScreen({ navigation }: Props) {
     <>
       <Header navigation={navigation} title="Profile" />
       <Container>
-        <Content showsVerticalScrollIndicator={false}>
-          {/* Profile Avatar & Role */}
-          <Card>
-            <View style={{ alignItems: 'center', marginBottom: 12 }}>
-              <Text style={{ fontSize: 48 }}>{avatar}</Text>
-              <Text style={{ fontSize: 16, fontWeight: '700', marginTop: 8 }}>{user.name}</Text>
-              <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
-                {user.role === 'PASSENGER' ? '👤 Passenger' : user.role === 'DRIVER' ? '🚗 Driver' : '⚙️ Admin'}
-              </Text>
-            </View>
-          </Card>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <Content showsVerticalScrollIndicator={false}>
+            {/* Profile Avatar & Role */}
+            <Card>
+              <View style={{ alignItems: 'center', marginBottom: 12 }}>
+                <Text style={{ fontSize: 48 }}>{avatar}</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', marginTop: 8 }}>{user.name}</Text>
+                <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+                  {user.role === 'PASSENGER' ? '👤 Passenger' : user.role === 'DRIVER' ? '🚗 Driver' : '⚙️ Admin'}
+                </Text>
+              </View>
+            </Card>
 
-          {/* Basic Info */}
-          <Card>
-            <Title>Basic Information</Title>
-            <Label>Email</Label>
-            <ReadonlyField>{user.email}</ReadonlyField>
+            {/* Basic Info */}
+            <Card>
+              <Title>Basic Information</Title>
+              <Label>Email</Label>
+              <ReadonlyField>{user.email}</ReadonlyField>
 
-            <Label>Role</Label>
-            <ReadonlyField>{user.role}</ReadonlyField>
+              <Label>Role</Label>
+              <ReadonlyField>{user.role}</ReadonlyField>
 
-            {user.role === 'PASSENGER' && (
-              <>
-                <Label>Total Bookings</Label>
-                <ReadonlyField>{(user as any).totalBookings || 0}</ReadonlyField>
-              </>
-            )}
+              {user.role === 'PASSENGER' && (
+                <>
+                  <Label>Total Bookings</Label>
+                  <ReadonlyField>{(user as any).totalBookings || 0}</ReadonlyField>
+                </>
+              )}
 
-            {user.role === 'DRIVER' && (
-              <>
-                <Label>Total Trips</Label>
-                <ReadonlyField>{(user as any).totalTrips || 0}</ReadonlyField>
-              </>
-            )}
+              {user.role === 'DRIVER' && (
+                <>
+                  <Label>Total Trips</Label>
+                  <ReadonlyField>{(user as any).totalTrips || 0}</ReadonlyField>
+                </>
+              )}
 
-            <Label>Rating</Label>
-            <ReadonlyField>⭐ {user.rating || 0}/5.0</ReadonlyField>
-          </Card>
+              <Label>Rating</Label>
+              <ReadonlyField>⭐ {user.rating || 0}/5.0</ReadonlyField>
+            </Card>
 
-          {/* Editable Fields */}
-          <Card>
-            <Title>Edit Profile</Title>
+            {/* Editable Fields */}
+            <Card>
+              <Title>Edit Profile</Title>
 
-            <Label>Name</Label>
-            <Field
-              value={name}
-              onChangeText={setName}
-              editable={editMode && !loading}
-              placeholder="Enter your name"
-            />
+              <Label>Name</Label>
+              <Field
+                value={name}
+                onChangeText={setName}
+                editable={editMode && !loading}
+                placeholder="Enter your name"
+              />
 
-            <Label>Phone</Label>
-            <Field
-              value={phone}
-              onChangeText={setPhone}
-              editable={editMode && !loading}
-              placeholder="Enter your phone"
-              keyboardType="phone-pad"
-            />
+              <Label>Phone</Label>
+              <Field
+                value={phone}
+                onChangeText={setPhone}
+                editable={editMode && !loading}
+                placeholder="Enter your phone"
+                keyboardType="phone-pad"
+              />
 
-            <Label>Avatar Emoji</Label>
-            <Field
-              value={avatar}
-              onChangeText={setAvatar}
-              editable={editMode && !loading}
-              placeholder="Emoji only"
-              maxLength={2}
-            />
+              <Label>Avatar Emoji</Label>
+              <Field
+                value={avatar}
+                onChangeText={setAvatar}
+                editable={editMode && !loading}
+                placeholder="Emoji only"
+                maxLength={2}
+              />
 
-            {editMode ? (
-              <>
-                {loading ? (
-                  <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 12 }} />
-                ) : (
-                  <>
-                    <Button onPress={handleSave}>
-                      <ButtonText>Save Changes</ButtonText>
-                    </Button>
-                    <Button
-                      onPress={() => {
-                        setEditMode(false);
-                        setName(user.name);
-                        setPhone(user.phone);
-                        setAvatar(user.avatar || '👤');
-                      }}
-                      style={{ backgroundColor: '#6b7280' }}
-                    >
-                      <ButtonText>Cancel</ButtonText>
-                    </Button>
-                  </>
-                )}
-              </>
-            ) : (
-              <Button onPress={() => setEditMode(true)}>
-                <ButtonText>Edit Profile</ButtonText>
-              </Button>
-            )}
-          </Card>
+              {editMode ? (
+                <>
+                  {loading ? (
+                    <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 12 }} />
+                  ) : (
+                    <>
+                      <Button onPress={handleSave}>
+                        <ButtonText>Save Changes</ButtonText>
+                      </Button>
+                      <Button
+                        onPress={() => {
+                          setEditMode(false);
+                          setName(user.name);
+                          setPhone(user.phone);
+                          setAvatar(user.avatar || '👤');
+                        }}
+                        style={{ backgroundColor: '#6b7280' }}
+                      >
+                        <ButtonText>Cancel</ButtonText>
+                      </Button>
+                    </>
+                  )}
+                </>
+              ) : (
+                <Button onPress={() => setEditMode(true)}>
+                  <ButtonText>Edit Profile</ButtonText>
+                </Button>
+              )}
+            </Card>
 
-          {/* Logout */}
-          <Card>
-            {loading ? (
-              <ActivityIndicator size="large" color="#ef4444" />
-            ) : (
-              <DangerButton onPress={handleLogout}>
-                <ButtonText>Logout</ButtonText>
-              </DangerButton>
-            )}
-          </Card>
-        </Content>
+            {/* Logout */}
+            <Card>
+              {loading ? (
+                <ActivityIndicator size="large" color="#ef4444" />
+              ) : (
+                <DangerButton onPress={handleLogout}>
+                  <ButtonText>Logout</ButtonText>
+                </DangerButton>
+              )}
+            </Card>
+          </Content>
+        </KeyboardAvoidingView>
       </Container>
     </>
   );
