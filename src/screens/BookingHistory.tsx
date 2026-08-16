@@ -1,6 +1,7 @@
 import styled from 'styled-components/native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, FlatList } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import Header from '../components/Header';
 import { useAuth } from '../auth/AuthContext';
 import repository from '../repository';
@@ -135,10 +136,6 @@ export default function BookingHistoryScreen({ navigation }: Props) {
   const [activeTab, setActiveTab] = useState<TabType>('upcoming');
   const [cancelling, setCancelling] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
   const loadData = async () => {
     try {
       setLoading(true);
@@ -152,7 +149,6 @@ export default function BookingHistoryScreen({ navigation }: Props) {
         repository.fetchTrips(),
       ]);
 
-      // Enrich bookings with trip data
       const enrichedBookings = bookingList.map(booking => ({
         ...booking,
         tripData: tripList.find(t => t.id === booking.tripId),
@@ -167,6 +163,16 @@ export default function BookingHistoryScreen({ navigation }: Props) {
     }
   };
 
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [user])
+  );
+
   const handleCancelBooking = async (bookingId: string) => {
     Alert.alert('Confirm Cancellation', 'Are you sure you want to cancel this booking?', [
       { text: 'Keep It', onPress: () => {} },
@@ -176,7 +182,7 @@ export default function BookingHistoryScreen({ navigation }: Props) {
           setCancelling(bookingId);
           try {
             await repository.cancelBooking(bookingId);
-            // Reload data so cancelled booking remains visible with updated status
+            // Reload data so cancelled booking appears in the Cancelled tab and seats are restored
             await loadData();
             Alert.alert('Success', 'Booking cancelled');
           } catch (err: any) {
