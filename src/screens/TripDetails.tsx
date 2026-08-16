@@ -73,14 +73,6 @@ const ButtonText = styled.Text`
   font-weight: 700;
 `;
 
-const DangerButton = styled.TouchableOpacity`
-  background-color: #ef4444;
-  padding: 14px;
-  border-radius: 8px;
-  align-items: center;
-  margin-top: 8px;
-`;
-
 const SeatsInput = styled.TextInput`
   border-width: 1px;
   border-color: #e5e7eb;
@@ -146,6 +138,12 @@ export default function TripDetails({ route, navigation }: Props) {
       return;
     }
 
+    // Prevent booking own trip defensively
+    if (trip.driverId === user.id) {
+      Alert.alert('Error', 'You cannot book your own trip');
+      return;
+    }
+
     const seatsNum = parseInt(seats, 10) || 1;
     if (seatsNum < 1) {
       Alert.alert('Validation Error', 'Please select at least 1 seat');
@@ -159,12 +157,14 @@ export default function TripDetails({ route, navigation }: Props) {
     setBooking(true);
     try {
       await repository.bookTrip(trip.id, user.id, seatsNum);
-      Alert.alert('Success', 'Trip booked successfully!');
       // Refresh trip details to show updated seats
-      loadTrip();
+      await loadTrip();
+      // Also ensure booking history shows new booking by navigating to BookingHistory
+      Alert.alert('Success', 'Trip booked successfully!');
       navigation.navigate('BookingHistory');
     } catch (err: any) {
-      Alert.alert('Booking Error', err?.message || 'Failed to book trip');
+      const msg = err?.message || 'Failed to book trip';
+      Alert.alert('Booking Error', String(msg));
     } finally {
       setBooking(false);
     }
