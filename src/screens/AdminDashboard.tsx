@@ -1,6 +1,7 @@
 import styled from 'styled-components/native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { ActivityIndicator, Alert } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import Header from '../components/Header';
 import RoleGuard from '../components/RoleGuard';
 import { useAuth } from '../auth/AuthContext';
@@ -18,7 +19,7 @@ const Container = styled.View`
 `;
 
 const WelcomeCard = styled.View`
-  background-color: #5b21b6;
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 20px;
@@ -90,53 +91,36 @@ function AdminDashboardInner({ navigation }: Props) {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [driversCount, setDriversCount] = useState<number>(0);
   const [passengersCount, setPassengersCount] = useState<number>(0);
-  const [totalBookings, setTotalBookings] = useState<number>(0);
-  const [cancelledBookings, setCancelledBookings] = useState<number>(0);
-  const [completedCount, setCompletedCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [allTrips, drivers, passengers, bookings] = await Promise.all([
+      const [allTrips, drivers, passengers] = await Promise.all([
         repository.fetchTrips(),
         repository.getDrivers(),
         repository.getPassengers(),
-        repository.getBookings(),
       ]);
-
-      // Optional: if data source provides a dedicated getCompletedTrips, prefer it
-      let completedTripsCount = allTrips.filter(t => t.status === 'COMPLETED').length;
-      if (typeof (repository as any).getCompletedTrips === 'function') {
-        try {
-          // @ts-ignore
-          const completed = await (repository as any).getCompletedTrips();
-          if (Array.isArray(completed)) completedTripsCount = completed.length;
-        } catch (e) {
-          // ignore and fall back to filter
-        }
-      }
 
       setTrips(allTrips);
       setDriversCount(drivers.length);
       setPassengersCount(passengers.length);
-
-      const totalB = Array.isArray(bookings) ? bookings.length : allTrips.reduce((sum, t) => sum + (Array.isArray(t.passengers) ? t.passengers.length : 0), 0);
-      const cancelled = Array.isArray(bookings) ? bookings.filter(b => b.status === 'CANCELLED').length : allTrips.reduce((sum, t) => sum + (Array.isArray(t.passengers) ? t.passengers.filter((p: any) => p.status === 'CANCELLED').length : 0), 0);
-
-      setTotalBookings(totalB);
-      setCancelledBookings(cancelled);
-      setCompletedCount(completedTripsCount);
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Failed to load admin data');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadData();
+  }, [user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [user?.id])
+  );
 
   if (loading) {
     return (
@@ -149,12 +133,19 @@ function AdminDashboardInner({ navigation }: Props) {
     );
   }
 
+  // Calculate statistics
   const totalTrips = trips.length;
   const now = new Date();
   const upcomingTrips = trips.filter(t => {
     const tripDate = new Date(`${t.departureDate}T${t.departureTime}`);
     return t.status === 'SCHEDULED' && tripDate > now;
   }).length;
+  const completedTrips = trips.filter(t => t.status === 'COMPLETED').length;
+  const totalBookings = trips.reduce((sum, t) => sum + (Array.isArray(t.passengers) ? t.passengers.length : 0), 0);
+  const cancelledBookings = trips.reduce((sum, t) => {
+    const c = (t.passengers || []).filter(p => p.status === 'CANCELLED').length;
+    return sum + c;
+  }, 0);
 
   return (
     <>
@@ -177,7 +168,7 @@ function AdminDashboardInner({ navigation }: Props) {
           </StatCard>
 
           <StatCard>
-            <StatNumber>{completedCount}</StatNumber>
+            <StatNumber>{completedTrips}</StatNumber>
             <StatLabel>Completed Trips</StatLabel>
           </StatCard>
 
